@@ -55,6 +55,7 @@ const ThingsService = {
         'usr.id',
       )
       .groupBy('rev.id', 'usr.id')
+      .orderBy('id')
   },
 
   serializeThings(things) {

@@ -224,9 +224,6 @@ function makeThingsFixtures() {
 }
 
 function cleanTables(db) {
-  console.log(`=============`);
-  console.log(`CLEAN TABLES`);
-  console.log(`=============`);
   return db.transaction(trx =>
     trx.raw(
       `TRUNCATE
@@ -249,28 +246,6 @@ function cleanTables(db) {
   )
 }
 
-// function cleanTables(db) {
-//   return db.transaction(trx =>
-//     trx.raw(
-//       `TRUNCATE
-//         blogful_articles,
-//         blogful_users,
-//         blogful_comments
-//       `
-//     )
-//     .then(() =>
-//       Promise.all([
-//         trx.raw(`ALTER SEQUENCE blogful_articles_id_seq minvalue 0 START WITH 1`),
-//         trx.raw(`ALTER SEQUENCE blogful_users_id_seq minvalue 0 START WITH 1`),
-//         trx.raw(`ALTER SEQUENCE blogful_comments_id_seq minvalue 0 START WITH 1`),
-//         trx.raw(`SELECT setval('blogful_articles_id_seq', 0)`),
-//         trx.raw(`SELECT setval('blogful_users_id_seq', 0)`),
-//         trx.raw(`SELECT setval('blogful_comments_id_seq', 0)`),
-//       ])
-//     )
-//   )
-// }
-
 function seedUsers(db, users) {
   const preppedUsers = users.map(user => ({
     ...user,
@@ -290,7 +265,7 @@ function seedThingsTables(db, users, things, reviews=[]) {
   // use a transaction to group the queries and auto rollback on any failure
   return db.transaction(async trx => {
     await seedUsers(trx, users)
-    // await trx.into('thingful_things').insert(things)
+    await trx.into('thingful_things').insert(things)
     // update the auto sequence to match the forced id values
     await trx.raw(
       `SELECT setval('thingful_things_id_seq', ?)`,
@@ -298,7 +273,7 @@ function seedThingsTables(db, users, things, reviews=[]) {
     )
 
     if (reviews.length) {
-      await db.into('thingful_reviews').insert(reviews)
+      await trx.into('thingful_reviews').insert(reviews)
       await trx.raw(
         `SELECT setval('thingful_reviews_id_seq', ?)`,
         [reviews[reviews.length - 1].id],

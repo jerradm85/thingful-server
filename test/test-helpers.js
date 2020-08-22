@@ -1,3 +1,6 @@
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+
 function makeUsersArray() {
   return [
     {
@@ -221,33 +224,91 @@ function makeThingsFixtures() {
 }
 
 function cleanTables(db) {
-  return db.raw(
-    `TRUNCATE
-      thingful_things,
-      thingful_users,
-      thingful_reviews
-      RESTART IDENTITY CASCADE`
+  console.log(`=============`);
+  console.log(`CLEAN TABLES`);
+  console.log(`=============`);
+  return db.transaction(trx =>
+    trx.raw(
+      `TRUNCATE
+        thingful_things,
+        thingful_users,
+        thingful_reviews
+        RESTART IDENTITY CASCADE
+      `
+    )
+    .then(() =>
+      Promise.all([
+        trx.raw(`ALTER SEQUENCE thingful_things_id_seq minvalue 0 START WITH 1`),
+        trx.raw(`ALTER SEQUENCE thingful_users_id_seq minvalue 0 START WITH 1`),
+        trx.raw(`ALTER SEQUENCE thingful_reviews_id_seq minvalue 0 START WITH 1`),
+        trx.raw(`SELECT setval('thingful_things_id_seq', 0)`),
+        trx.raw(`SELECT setval('thingful_users_id_seq', 0)`),
+        trx.raw(`SELECT setval('thingful_reviews_id_seq', 0)`),
+      ])
+    )
   )
 }
 
-function seedThingsTables(db, users, things, reviews=[]) {
-  return db
-    .into('thingful_users')
-    .insert(users)
+// function cleanTables(db) {
+//   return db.transaction(trx =>
+//     trx.raw(
+//       `TRUNCATE
+//         blogful_articles,
+//         blogful_users,
+//         blogful_comments
+//       `
+//     )
+//     .then(() =>
+//       Promise.all([
+//         trx.raw(`ALTER SEQUENCE blogful_articles_id_seq minvalue 0 START WITH 1`),
+//         trx.raw(`ALTER SEQUENCE blogful_users_id_seq minvalue 0 START WITH 1`),
+//         trx.raw(`ALTER SEQUENCE blogful_comments_id_seq minvalue 0 START WITH 1`),
+//         trx.raw(`SELECT setval('blogful_articles_id_seq', 0)`),
+//         trx.raw(`SELECT setval('blogful_users_id_seq', 0)`),
+//         trx.raw(`SELECT setval('blogful_comments_id_seq', 0)`),
+//       ])
+//     )
+//   )
+// }
+
+function seedUsers(db, users) {
+  const preppedUsers = users.map(user => ({
+    ...user,
+    password: bcrypt.hashSync(user.password, 1)
+  }))
+  return db.into('thingful_users').insert(preppedUsers)
     .then(() =>
-      db
-        .into('thingful_things')
-        .insert(things)
-    )
-    .then(() =>
-      reviews.length && db.into('thingful_reviews').insert(reviews)
+      // update the auto sequence to stay in sync
+      db.raw(
+        `SELECT setval('thingful_users_id_seq', ?)`,
+        [users[users.length - 1].id],
+      )
     )
 }
 
-function seedMaliciousThing(db, user, thing) {
-  return db
-    .into('thingful_users')
-    .insert([user])
+function seedThingsTables(db, users, things, reviews=[]) {
+  // use a transaction to group the queries and auto rollback on any failure
+  return db.transaction(async trx => {
+    await seedUsers(trx, users)
+    // await trx.into('thingful_things').insert(things)
+    // update the auto sequence to match the forced id values
+    await trx.raw(
+      `SELECT setval('thingful_things_id_seq', ?)`,
+      [things[things.length - 1].id],
+    )
+
+    if (reviews.length) {
+      await db.into('thingful_reviews').insert(reviews)
+      await trx.raw(
+        `SELECT setval('thingful_reviews_id_seq', ?)`,
+        [reviews[reviews.length - 1].id],
+      )
+    }
+  })
+}
+
+function seedMaliciousThing(db, user, thing) {  
+  return seedUsers(db, [user])
     .then(() =>
       db
         .into('thingful_things')
@@ -255,9 +316,12 @@ function seedMaliciousThing(db, user, thing) {
     )
 }
 
-function makeAuthHeader(user) {
-  const token = Buffer.from(`${user.user_name}:${user.password}`).toString('base64')
-  return `Basic ${token}`
+function makeAuthHeader(user, secret = process.env.JWT_SECRET) {
+  const token = jwt.sign({ user_id: user.id }, secret, {
+    subject: user.user_name,
+    algorithm: 'HS256',
+  })
+  return `Bearer ${token}`
 }
 
 module.exports = {
@@ -273,4 +337,5 @@ module.exports = {
   seedThingsTables,
   seedMaliciousThing,
   makeAuthHeader,
+  seedUsers,
 }

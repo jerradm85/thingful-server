@@ -55,6 +55,7 @@ describe.only('Users Endpoint', function () {
                         .expect(400, { error: `Missing ${field} in request body` })
                 })
             })
+
             it(`responds 400 if 'user_name' already exists`, () => {
                 const duplicateUser = {
                     user_name: testUsers[0].user_name,
@@ -65,6 +66,10 @@ describe.only('Users Endpoint', function () {
                     .post('/api/users')
                     .send(duplicateUser)
                     .expect(400, { error: `User name already exists` })
+            })
+
+            it(`responds 400 if password not complex enough`, () => {
+                
             })
         })
     })

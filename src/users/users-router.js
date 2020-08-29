@@ -6,7 +6,7 @@ const UserService = require('./users-service')
 
 userRouter
     .post('/', jsonBodyParser, (req, res, next) => {
-        const { full_name, nick_name, user_name, password } = req.body
+        const { full_name, nickname, user_name, password } = req.body
         for (const field of Object.keys({ full_name, user_name, password })) {
             if (!req.body[field]) {
                 return res.status(400).json({ error: `Missing ${field} in request body` })
@@ -33,8 +33,8 @@ userRouter
                             user_name,
                             password: hashedPassword,
                             full_name,
-                            nick_name,
-                            date_created: Date.now(),
+                            nickname,
+                            date_created: 'now()',
                         }
 
                         return UserService.insertUser(req.app.get('db'), newUser)

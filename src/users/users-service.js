@@ -1,4 +1,5 @@
 const xss = require('xss')
+const bcrypt = require('bcryptjs')
 
 const regExValidatePassword = /(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&])[\S]+/
 
@@ -43,7 +44,7 @@ const UserService = {
             id: xss(user.id),
             user_name: xss(user.user_name),
             full_name: xss(user.full_name),
-            nick_name: xss(user.nick_name),
+            nickname: xss(user.nickname),
             date_created: new Date(user.date_created),
         }
     }
